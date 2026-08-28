@@ -75,6 +75,7 @@ func NewRoot() *cobra.Command {
 		},
 	}
 	root.AddCommand(read)
+	o.addCatalogCommands(root)
 	root.CompletionOptions.DisableDefaultCmd = true
 	return root
 }
@@ -131,22 +132,23 @@ func (o *options) lookup(cmd *cobra.Command, args []string) error {
 	if !hasChapter(ref) {
 		return usagef("pass a chapter")
 	}
-	switch strings.ToLower(strings.TrimSpace(o.color)) {
-	case "auto", "always", "never":
-	default:
-		return usagef("invalid color %q (auto|always|never)", o.color)
+	if _, err := o.palette(); err != nil {
+		return err
 	}
-	pal, err := theme.Lookup(o.theme)
-	if err != nil {
-		return usagef("%s", err.Error())
-	}
-
-	out := cmd.OutOrStdout()
 	client := api.New(o.apiURL)
 	resp, err := client.GetVerses(cmd.Context(), ref, o.translation)
 	if err != nil {
 		return err
 	}
+	return o.writeVerseResponse(cmd, resp)
+}
+
+func (o *options) writeVerseResponse(cmd *cobra.Command, resp *api.VerseResponse) error {
+	pal, err := o.palette()
+	if err != nil {
+		return err
+	}
+	out := cmd.OutOrStdout()
 	if o.jsonOut {
 		return render.WriteJSON(out, resp)
 	}
@@ -164,6 +166,19 @@ func (o *options) lookup(cmd *cobra.Command, args []string) error {
 	return err
 }
 
+func (o *options) palette() (theme.Palette, error) {
+	switch strings.ToLower(strings.TrimSpace(o.color)) {
+	case "auto", "always", "never":
+	default:
+		return theme.Palette{}, usagef("invalid color %q (auto|always|never)", o.color)
+	}
+	pal, err := theme.Lookup(o.theme)
+	if err != nil {
+		return theme.Palette{}, usagef("%s", err.Error())
+	}
+	return pal, nil
+}
+
 func (o *options) colorEnabled(w io.Writer) bool {
 	switch strings.ToLower(strings.TrimSpace(o.color)) {
 	case "always":
@@ -171,9 +186,12 @@ func (o *options) colorEnabled(w io.Writer) bool {
 	case "never":
 		return false
 	default:
-		return isTTY(w)
+		return writerIsTTY(w)
 	}
 }
+
+// writerIsTTY is swapped in tests to simulate a TTY stdout.
+var writerIsTTY = isTTY
 
 func isTTY(w io.Writer) bool {
 	f, ok := w.(*os.File)
