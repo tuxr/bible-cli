@@ -65,6 +65,9 @@ func NewRoot() *cobra.Command {
 		SilenceErrors: true,
 		Args:          cobra.ArbitraryArgs,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateColor(o.color); err != nil {
+				return err
+			}
 			if skipConfigLoad(cmd) {
 				return nil
 			}
@@ -215,6 +218,7 @@ func (o *options) writeVerseResponse(cmd *cobra.Command, resp *api.VerseResponse
 		Palette:   pal,
 	}
 	if !writerIsTTY(out) {
+		opts.Color = false
 		_, err = fmt.Fprintln(out, render.PipedLookup(resp.Reference, resp.Verses, opts))
 		return err
 	}

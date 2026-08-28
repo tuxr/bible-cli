@@ -155,6 +155,16 @@ func TestWriteJSONVerseResponseOmitsTopLevelTextKeepsSegments(t *testing.T) {
 	}
 }
 
+func TestPipedLookupSegmentsNoESC(t *testing.T) {
+	out := PipedLookup("John 3:3", []api.Verse{john33()}, Options{Color: true, RedLetter: true, Palette: theme.Dark})
+	if strings.Contains(out, "\x1b") {
+		t.Fatalf("piped lookup must not emit ESC bytes even when Color=true: %q", out)
+	}
+	if !strings.Contains(out, john33().Segments[0].Text) || !strings.Contains(out, john33().Segments[1].Text) {
+		t.Fatalf("missing segment text: %q", out)
+	}
+}
+
 func TestPipedLookupSingleAndMulti(t *testing.T) {
 	one := PipedLookup("John 3:16", []api.Verse{{Verse: 16, Text: "For God so loved the world."}}, Options{})
 	if one != "John 3:16\nFor God so loved the world." {

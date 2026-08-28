@@ -76,6 +76,7 @@ func LookupBlock(header string, verses []api.Verse, opts Options) string {
 // PipedLookup is the pipe layout: canonical reference, then either a single
 // verse as text or verse-number<TAB>text lines for multiple verses.
 func PipedLookup(reference string, verses []api.Verse, opts Options) string {
+	opts.Color = false
 	var b strings.Builder
 	b.WriteString(reference)
 	switch len(verses) {

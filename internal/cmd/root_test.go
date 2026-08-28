@@ -331,6 +331,37 @@ func TestVersionNoHTTP(t *testing.T) {
 	}
 }
 
+func TestInvalidColorOnVersionAndCompletion(t *testing.T) {
+	called := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+	}))
+	t.Cleanup(srv.Close)
+
+	for _, args := range [][]string{
+		{"--color", "rainbow", "version"},
+		{"version", "--color", "rainbow"},
+		{"--color", "rainbow", "completion", "bash"},
+		{"completion", "--color", "rainbow", "bash"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			stdout, stderr, code := runCLI(t, srv.URL, args...)
+			if code != 1 {
+				t.Fatalf("code = %d, want 1, stdout = %q stderr = %q", code, stdout, stderr)
+			}
+			if called {
+				t.Fatal("must not call API")
+			}
+			if !strings.Contains(stderr, "invalid color") {
+				t.Fatalf("stderr = %q", stderr)
+			}
+			if strings.TrimSpace(stdout) != "" {
+				t.Fatalf("stdout = %q, want empty", stdout)
+			}
+		})
+	}
+}
+
 func TestCompletionNoHTTP(t *testing.T) {
 	called := false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -415,6 +446,20 @@ func TestPipedLookupSingleVerse(t *testing.T) {
 	}
 	if !strings.Contains(lines[1], "For God so loved the world") {
 		t.Fatalf("missing verse text: %q", lines[1])
+	}
+}
+
+func TestPipedLookupColorAlwaysNoANSI(t *testing.T) {
+	srv := newFixtureServer(t, http.StatusOK, "verse_john_3_16_segments.json")
+	stdout, stderr, code := runCLI(t, srv.URL, "--color", "always", "John", "3:16")
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, stderr)
+	}
+	if strings.Contains(stdout, "\x1b") {
+		t.Fatalf("piped lookup must be ANSI-free even with --color always: %q", stdout)
+	}
+	if !strings.Contains(stdout, "For God so loved the world") {
+		t.Fatalf("missing verse text: %q", stdout)
 	}
 }
 
