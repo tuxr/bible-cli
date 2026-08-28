@@ -1,9 +1,11 @@
 package main
 
-import "fmt"
+import (
+	"os"
 
-var version = "dev"
+	"github.com/tuxr/bible-cli/internal/cmd"
+)
 
 func main() {
-	fmt.Println("bible", version)
+	os.Exit(cmd.Execute())
 }
