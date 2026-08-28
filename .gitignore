@@ -1,0 +1,10 @@
+/bible
+/dist/
+*.exe
+*.test
+*.out
+vendor/
+.idea/
+.vscode/
+*.swp
+.DS_Store
