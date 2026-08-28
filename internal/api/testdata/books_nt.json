@@ -1,0 +1,342 @@
+[
+  {
+    "id": "MAT",
+    "name": "Matthew",
+    "testament": "NT",
+    "chapters": 28,
+    "aliases": [
+      "Matt",
+      "Mt"
+    ]
+  },
+  {
+    "id": "MRK",
+    "name": "Mark",
+    "testament": "NT",
+    "chapters": 16,
+    "aliases": [
+      "Mrk",
+      "Mar",
+      "Mk",
+      "Mr"
+    ]
+  },
+  {
+    "id": "LUK",
+    "name": "Luke",
+    "testament": "NT",
+    "chapters": 24,
+    "aliases": [
+      "Luk",
+      "Lk"
+    ]
+  },
+  {
+    "id": "JHN",
+    "name": "John",
+    "testament": "NT",
+    "chapters": 21,
+    "aliases": [
+      "Jhn",
+      "Jn"
+    ]
+  },
+  {
+    "id": "ACT",
+    "name": "Acts",
+    "testament": "NT",
+    "chapters": 28,
+    "aliases": [
+      "Act",
+      "Ac"
+    ]
+  },
+  {
+    "id": "ROM",
+    "name": "Romans",
+    "testament": "NT",
+    "chapters": 16,
+    "aliases": [
+      "Rom",
+      "Ro",
+      "Rm"
+    ]
+  },
+  {
+    "id": "1CO",
+    "name": "1 Corinthians",
+    "testament": "NT",
+    "chapters": 16,
+    "aliases": [
+      "1Cor",
+      "1Co",
+      "1 Cor",
+      "1 Co",
+      "I Cor",
+      "I Corinthians",
+      "1st Corinthians",
+      "First Corinthians"
+    ]
+  },
+  {
+    "id": "2CO",
+    "name": "2 Corinthians",
+    "testament": "NT",
+    "chapters": 13,
+    "aliases": [
+      "2Cor",
+      "2Co",
+      "2 Cor",
+      "2 Co",
+      "II Cor",
+      "II Corinthians",
+      "2nd Corinthians",
+      "Second Corinthians"
+    ]
+  },
+  {
+    "id": "GAL",
+    "name": "Galatians",
+    "testament": "NT",
+    "chapters": 6,
+    "aliases": [
+      "Gal",
+      "Ga"
+    ]
+  },
+  {
+    "id": "EPH",
+    "name": "Ephesians",
+    "testament": "NT",
+    "chapters": 6,
+    "aliases": [
+      "Eph",
+      "Ephes"
+    ]
+  },
+  {
+    "id": "PHP",
+    "name": "Philippians",
+    "testament": "NT",
+    "chapters": 4,
+    "aliases": [
+      "Phil",
+      "Php",
+      "Pp"
+    ]
+  },
+  {
+    "id": "COL",
+    "name": "Colossians",
+    "testament": "NT",
+    "chapters": 4,
+    "aliases": [
+      "Col",
+      "Co"
+    ]
+  },
+  {
+    "id": "1TH",
+    "name": "1 Thessalonians",
+    "testament": "NT",
+    "chapters": 5,
+    "aliases": [
+      "1Thess",
+      "1Th",
+      "1 Thess",
+      "1 Th",
+      "I Thess",
+      "I Thessalonians",
+      "1st Thessalonians",
+      "First Thessalonians"
+    ]
+  },
+  {
+    "id": "2TH",
+    "name": "2 Thessalonians",
+    "testament": "NT",
+    "chapters": 3,
+    "aliases": [
+      "2Thess",
+      "2Th",
+      "2 Thess",
+      "2 Th",
+      "II Thess",
+      "II Thessalonians",
+      "2nd Thessalonians",
+      "Second Thessalonians"
+    ]
+  },
+  {
+    "id": "1TI",
+    "name": "1 Timothy",
+    "testament": "NT",
+    "chapters": 6,
+    "aliases": [
+      "1Tim",
+      "1Ti",
+      "1 Tim",
+      "1 Ti",
+      "I Tim",
+      "I Timothy",
+      "1st Timothy",
+      "First Timothy"
+    ]
+  },
+  {
+    "id": "2TI",
+    "name": "2 Timothy",
+    "testament": "NT",
+    "chapters": 4,
+    "aliases": [
+      "2Tim",
+      "2Ti",
+      "2 Tim",
+      "2 Ti",
+      "II Tim",
+      "II Timothy",
+      "2nd Timothy",
+      "Second Timothy"
+    ]
+  },
+  {
+    "id": "TIT",
+    "name": "Titus",
+    "testament": "NT",
+    "chapters": 3,
+    "aliases": [
+      "Tit",
+      "Ti"
+    ]
+  },
+  {
+    "id": "PHM",
+    "name": "Philemon",
+    "testament": "NT",
+    "chapters": 1,
+    "aliases": [
+      "Philem",
+      "Phm",
+      "Pm"
+    ]
+  },
+  {
+    "id": "HEB",
+    "name": "Hebrews",
+    "testament": "NT",
+    "chapters": 13,
+    "aliases": [
+      "Heb"
+    ]
+  },
+  {
+    "id": "JAS",
+    "name": "James",
+    "testament": "NT",
+    "chapters": 5,
+    "aliases": [
+      "Jas",
+      "Jm"
+    ]
+  },
+  {
+    "id": "1PE",
+    "name": "1 Peter",
+    "testament": "NT",
+    "chapters": 5,
+    "aliases": [
+      "1Pet",
+      "1Pe",
+      "1Pt",
+      "1 Pet",
+      "1 Pe",
+      "I Pet",
+      "I Peter",
+      "1st Peter",
+      "First Peter"
+    ]
+  },
+  {
+    "id": "2PE",
+    "name": "2 Peter",
+    "testament": "NT",
+    "chapters": 3,
+    "aliases": [
+      "2Pet",
+      "2Pe",
+      "2Pt",
+      "2 Pet",
+      "2 Pe",
+      "II Pet",
+      "II Peter",
+      "2nd Peter",
+      "Second Peter"
+    ]
+  },
+  {
+    "id": "1JN",
+    "name": "1 John",
+    "testament": "NT",
+    "chapters": 5,
+    "aliases": [
+      "1John",
+      "1Jn",
+      "1 Jn",
+      "I Jn",
+      "I John",
+      "1st John",
+      "First John"
+    ]
+  },
+  {
+    "id": "2JN",
+    "name": "2 John",
+    "testament": "NT",
+    "chapters": 1,
+    "aliases": [
+      "2John",
+      "2Jn",
+      "2 Jn",
+      "II Jn",
+      "II John",
+      "2nd John",
+      "Second John"
+    ]
+  },
+  {
+    "id": "3JN",
+    "name": "3 John",
+    "testament": "NT",
+    "chapters": 1,
+    "aliases": [
+      "3John",
+      "3Jn",
+      "3 Jn",
+      "III Jn",
+      "III John",
+      "3rd John",
+      "Third John"
+    ]
+  },
+  {
+    "id": "JUD",
+    "name": "Jude",
+    "testament": "NT",
+    "chapters": 1,
+    "aliases": [
+      "Jud",
+      "Jd"
+    ]
+  },
+  {
+    "id": "REV",
+    "name": "Revelation",
+    "testament": "NT",
+    "chapters": 22,
+    "aliases": [
+      "Rev",
+      "Re",
+      "Apocalypse"
+    ]
+  }
+]
