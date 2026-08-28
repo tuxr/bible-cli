@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/tuxr/bible-cli/internal/api"
 )
 
 func TestSearchSubmitResultsOpenAtVerse(t *testing.T) {
@@ -104,6 +106,52 @@ func TestSearchEscapeOneLevel(t *testing.T) {
 	}
 	if m.chapter.Book.ID != "JHN" || m.chapter.Chapter != 3 || m.cursor != 1 {
 		t.Fatalf("reader mutated: %+v cursor=%d", m.chapter, m.cursor)
+	}
+}
+
+func TestDelayedSearchDoesNotRestoreResultsAfterEscape(t *testing.T) {
+	srv, _ := newTUIServer(t)
+	m := load(t, clientOpts(t, srv, Options{ResumeBook: "JHN", ResumeChapter: 3}))
+	next, cmd := m.Update(key("/"))
+	m = drain(t, asModel(t, next), cmd)
+	next, cmd = m.Update(key("love"))
+	m = drain(t, asModel(t, next), cmd)
+	next, searchCmd := m.Update(key("enter"))
+	m = asModel(t, next)
+	if m.view != viewSearchResults {
+		t.Fatalf("view = %d, want results", m.view)
+	}
+	if searchCmd == nil {
+		t.Fatal("expected in-flight search")
+	}
+	next, _ = m.Update(key("esc"))
+	m = asModel(t, next)
+	if m.view != viewSearchQuery {
+		t.Fatalf("esc from results = %d, want query", m.view)
+	}
+	next, _ = m.Update(searchCmd())
+	m = asModel(t, next)
+	if m.view != viewSearchQuery {
+		t.Fatalf("delayed search restored results: view=%d", m.view)
+	}
+	next, _ = m.Update(searchMsg{
+		seq: m.searchSeq,
+		resp: &api.SearchResponse{
+			Query: "love",
+			Total: 1,
+			Results: []api.SearchHit{{
+				Book:      "GEN",
+				BookName:  "Genesis",
+				Chapter:   22,
+				Verse:     2,
+				Text:      "Take your son",
+				Reference: "Genesis 22:2",
+			}},
+		},
+	})
+	m = asModel(t, next)
+	if m.view != viewSearchQuery {
+		t.Fatalf("current-seq search restored results: view=%d", m.view)
 	}
 }
 

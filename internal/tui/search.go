@@ -87,7 +87,7 @@ func (m Model) applySearch(msg searchMsg) (Model, tea.Cmd) {
 	if msg.seq != m.searchSeq {
 		return m, nil
 	}
-	if m.view != viewSearchResults && m.view != viewSearchQuery {
+	if m.view != viewSearchResults {
 		return m, nil
 	}
 	if msg.err != nil {
@@ -113,6 +113,7 @@ func (m Model) applySearch(msg searchMsg) (Model, tea.Cmd) {
 func (m Model) handleSearchResultsKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
+		m.searchSeq++
 		m.view = viewSearchQuery
 		return m, nil
 	case "q":
