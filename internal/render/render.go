@@ -73,6 +73,29 @@ func LookupBlock(header string, verses []api.Verse, opts Options) string {
 	return b.String()
 }
 
+// PipedLookup is the pipe layout: canonical reference, then either a single
+// verse as text or verse-number<TAB>text lines for multiple verses.
+func PipedLookup(reference string, verses []api.Verse, opts Options) string {
+	opts.Color = false
+	var b strings.Builder
+	b.WriteString(reference)
+	switch len(verses) {
+	case 0:
+		return b.String()
+	case 1:
+		b.WriteByte('\n')
+		b.WriteString(verseText(verses[0], opts))
+	default:
+		for _, v := range verses {
+			b.WriteByte('\n')
+			b.WriteString(strconv.Itoa(v.Verse))
+			b.WriteByte('	')
+			b.WriteString(verseText(v, opts))
+		}
+	}
+	return b.String()
+}
+
 // WriteJSON writes v as JSON. It does not add a redundant top-level text field.
 func WriteJSON(w io.Writer, v any) error {
 	enc := json.NewEncoder(w)

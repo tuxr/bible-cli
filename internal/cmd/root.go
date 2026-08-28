@@ -24,6 +24,15 @@ const (
 	exitSystem   = 3
 )
 
+// Version is the bible-cli version printed by `bible version` and sent as User-Agent.
+// Wired from main (GoReleaser -ldflags); defaults to "dev".
+var Version = "dev"
+
+var reservedRefs = map[string]struct{}{
+	"config": {},
+	"tui":    {},
+}
+
 // book then chapter number (optional verse/range). Leading book numbers like "1 John" are allowed.
 var hasChapterRE = regexp.MustCompile(`(?i)^(?:\d+\s+)?[A-Za-z]+(?:\s+[A-Za-z]+)*\s+\d+`)
 
@@ -56,11 +65,20 @@ func NewRoot() *cobra.Command {
 		SilenceErrors: true,
 		Args:          cobra.ArbitraryArgs,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateColor(o.color); err != nil {
+				return err
+			}
+			if skipConfigLoad(cmd) {
+				return nil
+			}
 			return o.applyConfig(cmd)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
+			}
+			if _, reserved := reservedRefs[strings.ToLower(args[0])]; reserved {
+				return usagef("%s is a reserved command", args[0])
 			}
 			return o.lookup(cmd, args)
 		},
@@ -80,7 +98,15 @@ func NewRoot() *cobra.Command {
 	}
 	root.AddCommand(read)
 	o.addCatalogCommands(root)
-	root.CompletionOptions.DisableDefaultCmd = true
+	root.AddCommand(&cobra.Command{
+		Use:   "version",
+		Short: "Print bible-cli version",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_, err := fmt.Fprintln(cmd.OutOrStdout(), Version)
+			return err
+		},
+	})
 	return root
 }
 
@@ -95,6 +121,9 @@ func (o *options) bindFlags(cmd *cobra.Command) {
 }
 
 func (o *options) applyConfig(cmd *cobra.Command) error {
+	if err := validateColor(o.color); err != nil {
+		return err
+	}
 	fs := cmd.Flags()
 	cfg, err := config.Load(config.Flags{
 		Translation:    o.translation,
@@ -117,7 +146,10 @@ func (o *options) applyConfig(cmd *cobra.Command) error {
 }
 
 // Execute runs the CLI with process args and stdio.
-func Execute() int {
+func Execute(version string) int {
+	if v := strings.TrimSpace(version); v != "" {
+		Version = v
+	}
 	return ExecuteWith(os.Args[1:], os.Stdout, os.Stderr)
 }
 
@@ -127,6 +159,7 @@ func ExecuteWith(args []string, stdout, stderr io.Writer) int {
 	if args == nil {
 		args = []string{}
 	}
+	api.Version = Version
 	root := NewRoot()
 	root.SetArgs(args)
 	root.SetOut(stdout)
@@ -179,24 +212,56 @@ func (o *options) writeVerseResponse(cmd *cobra.Command, resp *api.VerseResponse
 		return render.WriteJSON(out, resp)
 	}
 
+	opts := render.Options{
+		Color:     o.colorEnabled(cmd, out),
+		RedLetter: o.redLetter,
+		Palette:   pal,
+	}
+	if !writerIsTTY(out) {
+		opts.Color = false
+		_, err = fmt.Fprintln(out, render.PipedLookup(resp.Reference, resp.Verses, opts))
+		return err
+	}
 	header := resp.Reference
 	if id := resp.Translation.ID; id != "" {
 		header = fmt.Sprintf("%s (%s)", resp.Reference, strings.ToUpper(id))
 	}
-	block := render.LookupBlock(header, resp.Verses, render.Options{
-		Color:     o.colorEnabled(out),
-		RedLetter: o.redLetter,
-		Palette:   pal,
-	})
+	block := render.LookupBlock(header, resp.Verses, opts)
 	_, err = fmt.Fprintln(out, block)
 	return err
 }
 
-func (o *options) palette() (theme.Palette, error) {
-	switch strings.ToLower(strings.TrimSpace(o.color)) {
+func skipConfigLoad(cmd *cobra.Command) bool {
+	for c := cmd; c != nil; c = c.Parent() {
+		switch c.Name() {
+		case "completion", "version":
+			return true
+		}
+	}
+	return false
+}
+
+func validateColor(v string) error {
+	switch strings.ToLower(strings.TrimSpace(v)) {
 	case "auto", "always", "never":
+		return nil
 	default:
-		return theme.Palette{}, usagef("invalid color %q (auto|always|never)", o.color)
+		return usagef("invalid color %q (auto|always|never)", v)
+	}
+}
+
+func colorFlagChanged(cmd *cobra.Command) bool {
+	for c := cmd; c != nil; c = c.Parent() {
+		if f := c.Flags().Lookup("color"); f != nil && f.Changed {
+			return true
+		}
+	}
+	return false
+}
+
+func (o *options) palette() (theme.Palette, error) {
+	if err := validateColor(o.color); err != nil {
+		return theme.Palette{}, err
 	}
 	pal, err := theme.Lookup(o.theme)
 	if err != nil {
@@ -205,8 +270,8 @@ func (o *options) palette() (theme.Palette, error) {
 	return pal, nil
 }
 
-func (o *options) colorEnabled(w io.Writer) bool {
-	switch strings.ToLower(strings.TrimSpace(o.color)) {
+func (o *options) colorEnabled(cmd *cobra.Command, w io.Writer) bool {
+	switch o.resolvedColor(cmd) {
 	case "always":
 		return true
 	case "never":
@@ -214,6 +279,20 @@ func (o *options) colorEnabled(w io.Writer) bool {
 	default:
 		return writerIsTTY(w)
 	}
+}
+
+func (o *options) resolvedColor(cmd *cobra.Command) string {
+	mode := strings.ToLower(strings.TrimSpace(o.color))
+	if colorFlagChanged(cmd) {
+		return mode
+	}
+	if os.Getenv("NO_COLOR") != "" {
+		return "never"
+	}
+	if os.Getenv("FORCE_COLOR") != "" {
+		return "always"
+	}
+	return mode
 }
 
 // writerIsTTY is swapped in tests to simulate a TTY stdout.

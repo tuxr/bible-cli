@@ -12,14 +12,19 @@ import (
 )
 
 func (o *options) addCatalogCommands(root *cobra.Command) {
+	var searchBook, searchTestament string
+	var searchLimit int
 	search := &cobra.Command{
 		Use:   "search [query]",
 		Short: "Search verses",
 		Args:  cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return o.search(cmd, args)
+			return o.search(cmd, args, searchBook, searchTestament, searchLimit)
 		},
 	}
+	search.Flags().StringVar(&searchBook, "book", "", "limit to book id (e.g. JHN)")
+	search.Flags().StringVar(&searchTestament, "testament", "", "filter: OT|NT|AP")
+	search.Flags().IntVar(&searchLimit, "limit", 0, "max results")
 
 	translations := &cobra.Command{
 		Use:   "translations",
@@ -56,14 +61,27 @@ func (o *options) addCatalogCommands(root *cobra.Command) {
 	root.AddCommand(search, translations, books, random)
 }
 
-func (o *options) search(cmd *cobra.Command, args []string) error {
+func (o *options) search(cmd *cobra.Command, args []string, book, testament string, limit int) error {
 	q := strings.TrimSpace(strings.Join(args, " "))
 	if q == "" {
 		return usagef("pass a search query")
 	}
+	ts, err := normalizeTestament(testament)
+	if err != nil {
+		return err
+	}
+	if limit < 0 {
+		return usagef("invalid limit %d (must be >= 0)", limit)
+	}
 	out := cmd.OutOrStdout()
 	client := api.New(o.apiURL)
-	resp, err := client.Search(cmd.Context(), q, o.translation)
+	resp, err := client.Search(cmd.Context(), api.SearchQuery{
+		Q:           q,
+		Translation: o.translation,
+		Book:        strings.TrimSpace(book),
+		Testament:   ts,
+		Limit:       limit,
+	})
 	if err != nil {
 		return err
 	}
