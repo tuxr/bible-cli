@@ -3,45 +3,74 @@
 Terminal Bible reader and CLI for [bible-api](https://bible-api.dws-cloud.com),
 the same API used by [bible-web](https://bible.dws-cloud.com).
 
-`bible` opens a full-screen chapter reader. `bible John 3:16` prints a verse.
-Default translation is WEB.
+`bible-cli` opens a full-screen chapter reader. `bible-cli John 3:16` prints a
+verse. Default translation is WEB.
 
 Author: [tuxr](https://github.com/tuxr). License: [MIT](LICENSE).
 
 ## Install
 
-Requires Go 1.26+:
+No Go required. Linux and macOS, amd64 and arm64:
 
 ```bash
-go install github.com/tuxr/bible-cli/cmd/bible@latest
+curl -fsSL https://raw.githubusercontent.com/tuxr/bible-cli/main/scripts/install.sh | sh
 ```
 
-GitHub Releases also publish static `bible` binaries for Linux and macOS
-(amd64 and arm64). Download an archive from
-[Releases](https://github.com/tuxr/bible-cli/releases) and put `bible` on your
-`PATH`.
+That installs `${PREFIX:-$HOME/.local/bin}/bible-cli` from the latest GitHub
+Release after SHA-256 verification against `checksums.txt`. Optional
+`--prefix DIR` and `--version vX.Y.Z`. Uninstall with
+`sh scripts/install.sh --uninstall` (or `bible-cli uninstall`).
+
+Then keep it current:
+
+```
+bible-cli update      # replace this GitHub Release install
+bible-cli uninstall   # remove $PREFIX/bible-cli (add --purge to drop config)
+```
+
+If you already have Go 1.26+:
+
+```bash
+go install github.com/tuxr/bible-cli/cmd/bible-cli@latest
+```
+
+`go install` puts the binary in `GOBIN` (or `GOPATH/bin`). `bible-cli update`
+will refuse that path — re-run `go install` or use the curl installer.
+
+GitHub Releases still publish static `bible-cli` archives for Linux and macOS
+(amd64 and arm64). Download from
+[Releases](https://github.com/tuxr/bible-cli/releases) if you prefer to unpack
+by hand.
+
+**Breaking:** v0.1.0 shipped the command as `bible`. This version is `bible-cli`
+because Debian/Ubuntu `bible-kjv` already owns `/usr/bin/bible`. The installer
+never writes a binary named `bible` and will not uninstall `bible-kjv`. Config
+stays at `$XDG_CONFIG_HOME/bible/config.toml`.
 
 ## Commands
 
 ```
-bible                         # TUI at last chapter, else Genesis 1 WEB
-bible tui [ref]               # TUI starting at a reference
-bible <ref>                   # print a verse, range, or chapter
-bible read <ref>              # same as root lookup
-bible search <query>          # full-text search
-bible translations            # list translations
-bible books [--testament OT|NT|AP]
-bible random [--book PSA] [--testament NT]
-bible version
-bible completion …            # shell completion (no network)
+bible-cli                         # TUI at last chapter, else Genesis 1 WEB
+bible-cli tui [ref]               # TUI starting at a reference
+bible-cli <ref>                   # print a verse, range, or chapter
+bible-cli read <ref>              # same as root lookup
+bible-cli search <query>          # full-text search
+bible-cli translations            # list translations
+bible-cli books [--testament OT|NT|AP]
+bible-cli random [--book PSA] [--testament NT]
+bible-cli update                  # latest GitHub Release for this OS/arch
+bible-cli uninstall [--purge]     # remove PREFIX/bible-cli
+bible-cli version
+bible-cli completion …            # shell completion (no network)
 ```
 
 References use the same strings the API already accepts (`John 3:16`,
-`Romans 8:28-39`, `Psalm 23`). Book-only lookups (`bible John`) are rejected;
-pass a chapter. `bible tui John` opens chapter 1.
+`Romans 8:28-39`, `Psalm 23`). Book-only lookups (`bible-cli John`) are rejected;
+pass a chapter. `bible-cli tui John` opens chapter 1.
 
 Reserved names (`tui`, `read`, `search`, `translations`, `books`, `random`,
-`version`, `help`, `completion`, `config`) are never treated as scripture.
+`version`, `help`, `completion`, `config`, `update`, `uninstall`) are never
+treated as scripture.
 
 ## TUI
 
@@ -95,7 +124,8 @@ piped unless `--json` is set. `search`, `translations`, and `books` emit JSON
 when piped.
 
 Exit codes: `0` ok · `1` usage/config · `2` not found (HTTP 400/404) · `3`
-system (5xx, network, 429 after one retry).
+system (5xx, network, 429 after one retry). `bible-cli update` uses `3` for
+GitHub/network failures and `1` for usage (wrong platform, `go install` path).
 
 ## Themes and red-letter
 

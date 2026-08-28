@@ -1,4 +1,5 @@
 /bible
+/bible-cli
 /dist/
 *.exe
 *.test

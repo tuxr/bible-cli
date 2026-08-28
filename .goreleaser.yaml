@@ -1,12 +1,12 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 version: 2
 
-project_name: bible
+project_name: bible-cli
 
 builds:
-  - id: bible
-    main: ./cmd/bible
-    binary: bible
+  - id: bible-cli
+    main: ./cmd/bible-cli
+    binary: bible-cli
     env:
       - CGO_ENABLED=0
     goos:
