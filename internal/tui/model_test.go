@@ -51,6 +51,8 @@ func newTUIServer(t *testing.T) (*httptest.Server, *apiLog) {
 	john3 := fixture(t, "chapter_john_3_segments.json")
 	verse := fixture(t, "verse_john_3_16_segments.json")
 	books := fixture(t, "books_nt.json")
+	translations := fixture(t, "translations.json")
+	searchLove := fixture(t, "search_love.json")
 
 	jhn1 := mustChapter(t, "JHN", "John", 1, []api.Verse{{Verse: 1, Text: "In the beginning was the Word, and the Word was with God, and the Word was God."}},
 		&api.NavRef{Book: "LUK", Chapter: 24}, &api.NavRef{Book: "JHN", Chapter: 2})
@@ -60,6 +62,10 @@ func newTUIServer(t *testing.T) (*httptest.Server, *apiLog) {
 		&api.NavRef{Book: "JHN", Chapter: 3}, &api.NavRef{Book: "JHN", Chapter: 5})
 	gen1 := mustChapter(t, "GEN", "Genesis", 1, []api.Verse{{Verse: 1, Text: "In the beginning God created the heavens and the earth."}},
 		nil, &api.NavRef{Book: "GEN", Chapter: 2})
+	gen22 := mustChapter(t, "GEN", "Genesis", 22, []api.Verse{
+		{Verse: 1, Text: "After these things, God tested Abraham."},
+		{Verse: 2, Text: "He said, Now take your son, your only son, Isaac, whom you love."},
+	}, &api.NavRef{Book: "GEN", Chapter: 21}, &api.NavRef{Book: "GEN", Chapter: 23})
 	rev22 := mustChapter(t, "REV", "Revelation", 22, []api.Verse{{Verse: 1, Text: "He showed me a river of water of life."}},
 		&api.NavRef{Book: "REV", Chapter: 21}, nil)
 
@@ -67,23 +73,35 @@ func newTUIServer(t *testing.T) (*httptest.Server, *apiLog) {
 		log.paths = append(log.paths, r.URL.Path)
 		log.queries = append(log.queries, r.URL.RawQuery)
 		w.Header().Set("Content-Type", "application/json")
+		trans := r.URL.Query().Get("translation")
+		if trans == "wlc" && strings.HasPrefix(r.URL.Path, "/v1/chapters/") {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":"Not found"}`))
+			return
+		}
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/v1/chapters/JHN/3"):
-			_, _ = w.Write(john3)
+			_, _ = w.Write(withTranslationJSON(t, john3, trans))
 		case strings.HasPrefix(r.URL.Path, "/v1/chapters/JHN/1"):
-			writeJSON(w, jhn1)
+			writeJSON(w, withTranslation(jhn1, trans))
 		case strings.HasPrefix(r.URL.Path, "/v1/chapters/JHN/2"):
-			writeJSON(w, jhn2)
+			writeJSON(w, withTranslation(jhn2, trans))
 		case strings.HasPrefix(r.URL.Path, "/v1/chapters/JHN/4"):
-			writeJSON(w, jhn4)
+			writeJSON(w, withTranslation(jhn4, trans))
 		case strings.HasPrefix(r.URL.Path, "/v1/chapters/GEN/1"):
-			writeJSON(w, gen1)
+			writeJSON(w, withTranslation(gen1, trans))
+		case strings.HasPrefix(r.URL.Path, "/v1/chapters/GEN/22"):
+			writeJSON(w, withTranslation(gen22, trans))
 		case strings.HasPrefix(r.URL.Path, "/v1/chapters/REV/22"):
-			writeJSON(w, rev22)
+			writeJSON(w, withTranslation(rev22, trans))
 		case strings.HasPrefix(r.URL.Path, "/v1/verses/"):
 			_, _ = w.Write(verse)
 		case r.URL.Path == "/v1/books":
 			_, _ = w.Write(books)
+		case r.URL.Path == "/v1/translations":
+			_, _ = w.Write(translations)
+		case r.URL.Path == "/v1/search":
+			_, _ = w.Write(searchLove)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 			_, _ = w.Write([]byte(`{"error":"Not found"}`))
@@ -107,6 +125,32 @@ func mustChapter(t *testing.T, id, name string, n int, verses []api.Verse, prev,
 
 func writeJSON(w http.ResponseWriter, v any) {
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+func withTranslation(ch *api.ChapterResponse, trans string) *api.ChapterResponse {
+	if ch == nil || trans == "" || trans == "web" {
+		return ch
+	}
+	cp := *ch
+	cp.Translation.ID = trans
+	return &cp
+}
+
+func withTranslationJSON(t *testing.T, raw []byte, trans string) []byte {
+	t.Helper()
+	if trans == "" || trans == "web" {
+		return raw
+	}
+	var ch api.ChapterResponse
+	if err := json.Unmarshal(raw, &ch); err != nil {
+		t.Fatal(err)
+	}
+	ch.Translation.ID = trans
+	b, err := json.Marshal(ch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
 }
 
 func asModel(t *testing.T, tm tea.Model) Model {
@@ -148,6 +192,12 @@ func key(s string) tea.KeyMsg {
 		return tea.KeyMsg{Type: tea.KeyUp}
 	case "down":
 		return tea.KeyMsg{Type: tea.KeyDown}
+	case "enter":
+		return tea.KeyMsg{Type: tea.KeyEnter}
+	case "esc", "escape":
+		return tea.KeyMsg{Type: tea.KeyEsc}
+	case "backspace":
+		return tea.KeyMsg{Type: tea.KeyBackspace}
 	case "ctrl+c":
 		return tea.KeyMsg{Type: tea.KeyCtrlC}
 	default:
