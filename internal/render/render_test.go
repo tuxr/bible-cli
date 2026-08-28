@@ -3,13 +3,9 @@ package render
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"regexp"
 	"strings"
 	"testing"
-
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 
 	"github.com/tuxr/bible-cli/internal/api"
 	"github.com/tuxr/bible-cli/internal/theme"
@@ -22,9 +18,7 @@ func stripANSI(s string) string {
 }
 
 func paintRed(text string, p theme.Palette) string {
-	r := lipgloss.NewRenderer(io.Discard)
-	r.SetColorProfile(termenv.TrueColor)
-	return r.NewStyle().Foreground(lipgloss.Color(p.RedLetter)).Render(text)
+	return jesusStyle(p).Render(text)
 }
 
 func john33() api.Verse {

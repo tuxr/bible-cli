@@ -7,11 +7,14 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 
 	"github.com/tuxr/bible-cli/internal/api"
 	"github.com/tuxr/bible-cli/internal/theme"
 )
+
+// trueColor is termenv.TrueColor (iota 0). Passed as an untyped int so
+// render does not import termenv and go.mod can keep it indirect.
+const trueColor = 0
 
 // Options controls verse rendering.
 type Options struct {
@@ -22,7 +25,7 @@ type Options struct {
 
 func jesusStyle(p theme.Palette) lipgloss.Style {
 	r := lipgloss.NewRenderer(io.Discard)
-	r.SetColorProfile(termenv.TrueColor)
+	r.SetColorProfile(trueColor)
 	return r.NewStyle().Foreground(lipgloss.Color(p.RedLetter))
 }
 
