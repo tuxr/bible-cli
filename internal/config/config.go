@@ -86,7 +86,9 @@ func Load(flags Flags) (Config, error) {
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return Config{}, err
 	}
-	applyEnv(&cfg)
+	if err := applyEnv(&cfg); err != nil {
+		return Config{}, err
+	}
 	applyFlags(&cfg, flags)
 	return cfg, nil
 }
@@ -136,7 +138,7 @@ func applyFile(cfg *Config, parsed fileConfig) {
 	}
 }
 
-func applyEnv(cfg *Config) {
+func applyEnv(cfg *Config) error {
 	if v := strings.TrimSpace(os.Getenv("BIBLE_TRANSLATION")); v != "" {
 		cfg.Translation = v
 	}
@@ -147,10 +149,13 @@ func applyEnv(cfg *Config) {
 		cfg.APIURL = v
 	}
 	if v := strings.TrimSpace(os.Getenv("BIBLE_RED_LETTER")); v != "" {
-		if b, err := parseBoolEnv(v); err == nil {
-			cfg.RedLetter = b
+		b, err := parseBoolEnv(v)
+		if err != nil {
+			return fmt.Errorf("config: BIBLE_RED_LETTER: %w", err)
 		}
+		cfg.RedLetter = b
 	}
+	return nil
 }
 
 func parseBoolEnv(s string) (bool, error) {

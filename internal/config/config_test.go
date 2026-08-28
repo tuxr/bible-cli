@@ -203,6 +203,50 @@ chapter = 3
 	}
 }
 
+func TestLoadRedLetterEnvCaseInsensitive(t *testing.T) {
+	tests := []struct {
+		val  string
+		want bool
+	}{
+		{"TRUE", true},
+		{"False", false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.val, func(t *testing.T) {
+			isolate(t)
+			t.Setenv("BIBLE_RED_LETTER", tc.val)
+			cfg, err := Load(Flags{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.RedLetter != tc.want {
+				t.Fatalf("red_letter = %v, want %v", cfg.RedLetter, tc.want)
+			}
+		})
+	}
+}
+
+func TestLoadInvalidRedLetterEnv(t *testing.T) {
+	tests := []string{"not-a-bool", "yes", "1", "0"}
+	for _, val := range tests {
+		t.Run(val, func(t *testing.T) {
+			dir := isolate(t)
+			writeConfig(t, dir, "red_letter = false\n")
+			t.Setenv("BIBLE_RED_LETTER", val)
+			_, err := Load(Flags{})
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if !strings.Contains(err.Error(), "BIBLE_RED_LETTER") {
+				t.Fatalf("err = %v, want BIBLE_RED_LETTER", err)
+			}
+			if !strings.Contains(err.Error(), val) {
+				t.Fatalf("err = %v, want %q", err, val)
+			}
+		})
+	}
+}
+
 func TestLoadInvalidTOML(t *testing.T) {
 	dir := isolate(t)
 	writeConfig(t, dir, "translation = [\n")

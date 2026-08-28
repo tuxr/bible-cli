@@ -257,6 +257,33 @@ func TestLookupFlagOverridesEnv(t *testing.T) {
 	}
 }
 
+func TestLookupInvalidRedLetterEnvExit1(t *testing.T) {
+	tests := []string{"not-a-bool", "yes", "1"}
+	for _, val := range tests {
+		t.Run(val, func(t *testing.T) {
+			called := 0
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				called++
+			}))
+			t.Cleanup(srv.Close)
+
+			isolateCmdEnv(t)
+			t.Setenv("BIBLE_RED_LETTER", val)
+			var out, errb bytes.Buffer
+			code := ExecuteWith([]string{"--api-url", srv.URL, "John", "3:16"}, &out, &errb)
+			if code != 1 {
+				t.Fatalf("code = %d, want 1, stderr = %q", code, errb.String())
+			}
+			if called != 0 {
+				t.Fatalf("fake server got %d requests, want 0", called)
+			}
+			if !strings.Contains(errb.String(), "BIBLE_RED_LETTER") {
+				t.Fatalf("stderr = %q, want BIBLE_RED_LETTER", errb.String())
+			}
+		})
+	}
+}
+
 func TestLookupUsesConfigAPIURL(t *testing.T) {
 	var called bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
