@@ -193,6 +193,9 @@ func (m Model) applyChapter(msg chapterMsg) (Model, tea.Cmd) {
 	if msg.seq != m.chapterSeq {
 		return m, nil
 	}
+	if m.view != viewReader {
+		return m, nil
+	}
 	failed := msg.err != nil || msg.chapter == nil
 	if failed {
 		if msg.commitTranslation {

@@ -256,6 +256,80 @@ func TestStaleBooksRejected(t *testing.T) {
 	}
 }
 
+func TestDelayedChapterDoesNotCloseBooksOverlay(t *testing.T) {
+	srv, _ := newTUIServer(t)
+	m := load(t, clientOpts(t, srv, Options{ResumeBook: "JHN", ResumeChapter: 3}))
+	cursor := m.cursor
+	next, navCmd := m.Update(key("n"))
+	m = asModel(t, next)
+	next, booksCmd := m.Update(key("b"))
+	m = drain(t, asModel(t, next), booksCmd)
+	if m.view != viewBooks {
+		t.Fatalf("view = %d, want books", m.view)
+	}
+	if navCmd == nil {
+		t.Fatal("expected in-flight chapter fetch")
+	}
+	next, _ = m.Update(navCmd())
+	m = asModel(t, next)
+	if m.view != viewBooks {
+		t.Fatalf("delayed chapter closed overlay: view=%d", m.view)
+	}
+	if m.chapter == nil || m.chapter.Book.ID != "JHN" || m.chapter.Chapter != 3 || m.cursor != cursor {
+		t.Fatalf("reader mutated: %+v cursor=%d", m.chapter, m.cursor)
+	}
+	next, _ = m.Update(chapterMsg{
+		seq:     m.chapterSeq,
+		chapter: mustChapter(t, "JHN", "John", 4, []api.Verse{{Verse: 1, Text: "Therefore when the Lord knew that the Pharisees had heard."}}, &api.NavRef{Book: "JHN", Chapter: 3}, &api.NavRef{Book: "JHN", Chapter: 5}),
+		book:    "JHN",
+		n:       4,
+	})
+	m = asModel(t, next)
+	if m.view != viewBooks {
+		t.Fatalf("current-seq chapter closed overlay: view=%d", m.view)
+	}
+	if m.chapter.Chapter != 3 {
+		t.Fatalf("reader chapter = %d", m.chapter.Chapter)
+	}
+}
+
+func TestDelayedChapterDoesNotCloseTranslationsOverlay(t *testing.T) {
+	srv, _ := newTUIServer(t)
+	m := load(t, clientOpts(t, srv, Options{ResumeBook: "JHN", ResumeChapter: 3}))
+	cursor := m.cursor
+	next, navCmd := m.Update(key("n"))
+	m = asModel(t, next)
+	next, transCmd := m.Update(key("t"))
+	m = drain(t, asModel(t, next), transCmd)
+	if m.view != viewTranslations {
+		t.Fatalf("view = %d, want translations", m.view)
+	}
+	if navCmd == nil {
+		t.Fatal("expected in-flight chapter fetch")
+	}
+	next, _ = m.Update(navCmd())
+	m = asModel(t, next)
+	if m.view != viewTranslations {
+		t.Fatalf("delayed chapter closed overlay: view=%d", m.view)
+	}
+	if m.chapter == nil || m.chapter.Book.ID != "JHN" || m.chapter.Chapter != 3 || m.cursor != cursor {
+		t.Fatalf("reader mutated: %+v cursor=%d", m.chapter, m.cursor)
+	}
+	next, _ = m.Update(chapterMsg{
+		seq:     m.chapterSeq,
+		chapter: mustChapter(t, "JHN", "John", 4, []api.Verse{{Verse: 1, Text: "Therefore when the Lord knew that the Pharisees had heard."}}, &api.NavRef{Book: "JHN", Chapter: 3}, &api.NavRef{Book: "JHN", Chapter: 5}),
+		book:    "JHN",
+		n:       4,
+	})
+	m = asModel(t, next)
+	if m.view != viewTranslations {
+		t.Fatalf("current-seq chapter closed overlay: view=%d", m.view)
+	}
+	if m.chapter.Chapter != 3 {
+		t.Fatalf("reader chapter = %d", m.chapter.Chapter)
+	}
+}
+
 func TestStaleChapterRejected(t *testing.T) {
 	srv, _ := newTUIServer(t)
 	m := load(t, clientOpts(t, srv, Options{ResumeBook: "JHN", ResumeChapter: 3}))

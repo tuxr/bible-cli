@@ -110,7 +110,7 @@ func (m Model) footerText() string {
 	case viewTranslations:
 		overlay = " j/k  enter  esc back  q close "
 	case viewSearchQuery:
-		overlay = " type query  enter  esc back "
+		overlay = " type query  enter  esc back  q close "
 	case viewSearchResults:
 		overlay = " j/k  enter open  esc back  q close "
 	}

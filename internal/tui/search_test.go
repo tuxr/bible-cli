@@ -149,6 +149,32 @@ func TestSearchEmptyQuery(t *testing.T) {
 	}
 }
 
+func TestQClosesSearchQueryWithoutQuit(t *testing.T) {
+	srv, _ := newTUIServer(t)
+	m := load(t, clientOpts(t, srv, Options{ResumeBook: "GEN", ResumeChapter: 1}))
+	next, cmd := m.Update(key("/"))
+	m = drain(t, asModel(t, next), cmd)
+	if m.view != viewSearchQuery {
+		t.Fatalf("view = %d, want search query", m.view)
+	}
+	view := m.View()
+	if !strings.Contains(view, "q close") {
+		t.Fatalf("footer missing q close:\n%s", view)
+	}
+	next, cmd = m.Update(key("q"))
+	m = asModel(t, next)
+	if cmd != nil {
+		if msg := cmd(); msg != nil {
+			if _, ok := msg.(tea.QuitMsg); ok {
+				t.Fatal("q on search query must not quit")
+			}
+		}
+	}
+	if m.view != viewReader {
+		t.Fatalf("view = %d, want reader", m.view)
+	}
+}
+
 func TestCtrlCQuitsFromSearch(t *testing.T) {
 	srv, _ := newTUIServer(t)
 	m := load(t, clientOpts(t, srv, Options{ResumeBook: "GEN", ResumeChapter: 1}))

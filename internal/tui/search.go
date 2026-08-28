@@ -20,6 +20,7 @@ type searchMsg struct {
 func (m Model) openSearch() (Model, tea.Cmd) {
 	m.help = false
 	m.view = viewSearchQuery
+	m.chapterSeq++
 	m.searchQuery = ""
 	m.searchHits = nil
 	m.searchCursor = 0
@@ -39,6 +40,8 @@ func (m Model) handleSearchQueryKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case "esc":
 		m.view = viewReader
 		return m, nil
+	case "q":
+		return m.closeOverlays(), nil
 	case "enter":
 		return m.submitSearch()
 	case "backspace":

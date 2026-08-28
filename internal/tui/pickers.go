@@ -74,6 +74,7 @@ func (m Model) filteredBooks() []api.Book {
 func (m Model) openBooks() (Model, tea.Cmd) {
 	m.help = false
 	m.view = viewBooks
+	m.chapterSeq++
 	m.bookFilter = ""
 	m.bookCursor = 0
 	m.booksSeq++
@@ -92,6 +93,7 @@ func (m Model) openBooks() (Model, tea.Cmd) {
 func (m Model) openTranslations() (Model, tea.Cmd) {
 	m.help = false
 	m.view = viewTranslations
+	m.chapterSeq++
 	m.transCursor = 0
 	m.transSeq++
 	m.status = ""
