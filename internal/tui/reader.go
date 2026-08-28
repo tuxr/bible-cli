@@ -10,7 +10,7 @@ import (
 	"github.com/tuxr/bible-cli/internal/render"
 )
 
-const footerKeys = " j/k verse  n/p chapter  ? help  q quit "
+const footerReader = " j/k verse  n/p chapter  b books  t translation  / search  ? help  q quit "
 
 // Run starts the full-screen chapter reader.
 func Run(opts Options) error {
@@ -96,14 +96,45 @@ func (m Model) renderFooter(width int) string {
 	if m.color {
 		s = s.Foreground(lipgloss.Color(m.pal.FooterFg)).Background(lipgloss.Color(m.pal.FooterBg))
 	}
-	return s.Width(width).MaxWidth(width).Render(clip(footerKeys, width))
+	text := clipLines(m.footerText(), width)
+	return s.Width(width).MaxWidth(width).Render(text)
+}
+
+func (m Model) footerText() string {
+	overlay := ""
+	switch m.view {
+	case viewBooks:
+		overlay = " type filter  ↑/↓  enter  esc back  q close "
+	case viewChapters:
+		overlay = " j/k chapter  enter  esc back  q close "
+	case viewTranslations:
+		overlay = " j/k  enter  esc back  q close "
+	case viewSearchQuery:
+		overlay = " type query  enter  esc back  q close "
+	case viewSearchResults:
+		overlay = " j/k  enter open  esc back  q close "
+	}
+	if overlay != "" {
+		return overlay + "\n" + footerReader
+	}
+	return footerReader
 }
 
 func (m Model) renderBody(width, height int) string {
 	var text string
 	switch {
-	case m.help:
+	case m.help && m.view == viewReader:
 		text = m.helpText()
+	case m.view == viewBooks:
+		return m.renderBookPicker(width, height)
+	case m.view == viewChapters:
+		return m.renderChapterGrid(width, height)
+	case m.view == viewTranslations:
+		return m.renderTranslationPicker(width, height)
+	case m.view == viewSearchQuery:
+		return m.renderSearchQuery(width, height)
+	case m.view == viewSearchResults:
+		return m.renderSearchResults(width, height)
 	case m.state == stateLoading && m.chapter == nil:
 		text = "loading…"
 	case m.state == stateError && m.chapter == nil:
@@ -126,6 +157,9 @@ func (m Model) helpText() string {
 		" k / ↑    previous verse",
 		" n / →    next chapter",
 		" p / ←    previous chapter",
+		" b        books",
+		" t        translation",
+		" /        search",
 		" ?        toggle help",
 		" q        quit",
 	}, "\n")
@@ -235,6 +269,17 @@ func clip(s string, width int) string {
 		return s
 	}
 	return lipgloss.NewStyle().MaxWidth(width).Render(s)
+}
+
+func clipLines(s string, width int) string {
+	if !strings.Contains(s, "\n") {
+		return clip(s, width)
+	}
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		lines[i] = clip(line, width)
+	}
+	return strings.Join(lines, "\n")
 }
 
 func repeat(s string, n int) string {
