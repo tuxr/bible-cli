@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/tuxr/bible-cli/internal/api"
+	"github.com/tuxr/bible-cli/internal/config"
 	"github.com/tuxr/bible-cli/internal/render"
 	"github.com/tuxr/bible-cli/internal/theme"
 )
@@ -54,6 +55,9 @@ func NewRoot() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Args:          cobra.ArbitraryArgs,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			return o.applyConfig(cmd)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
@@ -82,12 +86,34 @@ func NewRoot() *cobra.Command {
 
 func (o *options) bindFlags(cmd *cobra.Command) {
 	f := cmd.PersistentFlags()
-	f.StringVarP(&o.translation, "translation", "t", "web", "translation id")
+	f.StringVarP(&o.translation, "translation", "t", config.DefaultTranslation, "translation id")
 	f.BoolVar(&o.jsonOut, "json", false, "print JSON")
 	f.StringVar(&o.apiURL, "api-url", "", "bible-api base URL")
 	f.StringVar(&o.color, "color", "auto", "color output: auto|always|never")
-	f.BoolVar(&o.redLetter, "red-letter", true, "color words of Jesus")
-	f.StringVar(&o.theme, "theme", "auto", "theme: dark|light|auto")
+	f.BoolVar(&o.redLetter, "red-letter", config.DefaultRedLetter, "color words of Jesus")
+	f.StringVar(&o.theme, "theme", config.DefaultTheme, "theme: dark|light|auto")
+}
+
+func (o *options) applyConfig(cmd *cobra.Command) error {
+	fs := cmd.Flags()
+	cfg, err := config.Load(config.Flags{
+		Translation:    o.translation,
+		Theme:          o.theme,
+		APIURL:         o.apiURL,
+		RedLetter:      o.redLetter,
+		HasTranslation: fs.Changed("translation"),
+		HasTheme:       fs.Changed("theme"),
+		HasAPIURL:      fs.Changed("api-url"),
+		HasRedLetter:   fs.Changed("red-letter"),
+	})
+	if err != nil {
+		return err
+	}
+	o.translation = cfg.Translation
+	o.theme = cfg.Theme
+	o.apiURL = cfg.APIURL
+	o.redLetter = cfg.RedLetter
+	return nil
 }
 
 // Execute runs the CLI with process args and stdio.

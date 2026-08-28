@@ -255,3 +255,22 @@ func TestPreferWebFirst(t *testing.T) {
 		t.Fatal("must not mutate input")
 	}
 }
+
+func TestSearchUsesConfigTranslation(t *testing.T) {
+	writeXDGConfig(t, "translation = \"kjv\"\n")
+	var gotQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(readFixture(t, "search_love.json"))
+	}))
+	t.Cleanup(srv.Close)
+
+	_, stderr, code := runCLI(t, srv.URL, "search", "love")
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, stderr)
+	}
+	if !strings.Contains(gotQuery, "translation=kjv") {
+		t.Fatalf("query = %q, want translation=kjv from config", gotQuery)
+	}
+}
