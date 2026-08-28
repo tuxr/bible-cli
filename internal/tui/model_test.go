@@ -215,6 +215,50 @@ func TestInitInvalidResumeFallsBackGEN1(t *testing.T) {
 	}
 }
 
+func TestInitUnknownOrOutOfRangeResumeFallsBackGEN1(t *testing.T) {
+	srv, log := newTUIServer(t)
+	tests := []struct {
+		name    string
+		book    string
+		chapter int
+		tried   string
+	}{
+		{name: "unknown book", book: "NOPE", chapter: 1, tried: "/v1/chapters/NOPE/1"},
+		{name: "out of range", book: "JHN", chapter: 99, tried: "/v1/chapters/JHN/99"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			log.paths = nil
+			m := load(t, clientOpts(t, srv, Options{ResumeBook: tt.book, ResumeChapter: tt.chapter}))
+			if m.state != stateReady {
+				t.Fatalf("state = %d, want ready; status=%q err=%v", m.state, m.status, m.err)
+			}
+			if m.chapter == nil || m.chapter.Book.ID != "GEN" || m.chapter.Chapter != 1 {
+				t.Fatalf("chapter = %+v", m.chapter)
+			}
+			joined := strings.Join(log.paths, ",")
+			if !strings.Contains(joined, tt.tried) {
+				t.Fatalf("expected resume fetch %s, paths=%v", tt.tried, log.paths)
+			}
+			if !strings.Contains(joined, "/v1/chapters/GEN/1") {
+				t.Fatalf("expected GEN/1 fallback, paths=%v", log.paths)
+			}
+		})
+	}
+}
+
+func TestInitExplicitRefFailureStaysError(t *testing.T) {
+	srv, log := newTUIServer(t)
+	m := load(t, clientOpts(t, srv, Options{Ref: "NOPE"}))
+	if m.state != stateError {
+		t.Fatalf("state = %d, want error; status=%q", m.state, m.status)
+	}
+	joined := strings.Join(log.paths, ",")
+	if strings.Contains(joined, "/v1/chapters/GEN/1") {
+		t.Fatalf("explicit ref must not fall back to GEN/1: %v", log.paths)
+	}
+}
+
 func TestInitExplicitVerseRefOverridesResume(t *testing.T) {
 	srv, log := newTUIServer(t)
 	m := load(t, clientOpts(t, srv, Options{

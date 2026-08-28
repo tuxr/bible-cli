@@ -81,6 +81,8 @@ type resolvedMsg struct {
 
 type chapterMsg struct {
 	chapter *api.ChapterResponse
+	book    string
+	n       int
 	err     error
 }
 
@@ -145,15 +147,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) applyChapter(msg chapterMsg) (Model, tea.Cmd) {
-	if msg.err != nil {
-		if m.chapter == nil {
-			m.state = stateError
-			m.err = msg.err
+	failed := msg.err != nil || msg.chapter == nil
+	if failed {
+		if m.chapter == nil && m.ref == "" && !isDefaultChapter(msg.book, msg.n) {
+			return m, m.fetchChapterCmd(defaultBook, defaultChapter)
 		}
-		m.status = msg.err.Error()
-		return m, nil
-	}
-	if msg.chapter == nil {
+		if msg.err != nil {
+			if m.chapter == nil {
+				m.state = stateError
+				m.err = msg.err
+			}
+			m.status = msg.err.Error()
+			return m, nil
+		}
 		if m.chapter == nil {
 			m.state = stateError
 			m.status = "empty chapter"
@@ -227,10 +233,10 @@ func (m Model) fetchChapterCmd(book string, chapter int) tea.Cmd {
 	translation := m.translation
 	return func() tea.Msg {
 		if client == nil {
-			return chapterMsg{err: fmt.Errorf("no client")}
+			return chapterMsg{book: book, n: chapter, err: fmt.Errorf("no client")}
 		}
 		ch, err := client.GetChapter(context.Background(), book, chapter, translation)
-		return chapterMsg{chapter: ch, err: err}
+		return chapterMsg{chapter: ch, book: book, n: chapter, err: err}
 	}
 }
 
@@ -266,6 +272,10 @@ func (m Model) resolveRefCmd(ref string) tea.Cmd {
 		}
 		return resolvedMsg{book: b.ID, chapter: 1}
 	}
+}
+
+func isDefaultChapter(book string, n int) bool {
+	return strings.EqualFold(strings.TrimSpace(book), defaultBook) && n == defaultChapter
 }
 
 func matchBook(books []api.Book, ref string) (api.Book, bool) {
