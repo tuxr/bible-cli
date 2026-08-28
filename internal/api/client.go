@@ -97,11 +97,14 @@ func (c *Client) Translations(ctx context.Context) ([]Translation, error) {
 }
 
 // Random is GET /v1/random.
-func (c *Client) Random(ctx context.Context, translation string) (*VerseResponse, error) {
+func (c *Client) Random(ctx context.Context, translation, book, testament string) (*VerseResponse, error) {
 	var out VerseResponse
-	vals := url.Values{}
-	if translation != "" {
-		vals.Set("translation", translation)
+	vals := scriptureQuery(translation)
+	if book != "" {
+		vals.Set("book", book)
+	}
+	if testament != "" {
+		vals.Set("testament", testament)
 	}
 	if err := c.doJSON(ctx, apiPrefix+"/random", vals, &out); err != nil {
 		return nil, err

@@ -131,6 +131,104 @@ func TestGetChapterJohn3(t *testing.T) {
 	}
 }
 
+func TestSearchLove(t *testing.T) {
+	var path, rawQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		rawQuery = r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(readFixture(t, "search_love.json"))
+	}))
+	t.Cleanup(srv.Close)
+
+	got, err := New(srv.URL).Search(context.Background(), "love", "web")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if path != "/v1/search" {
+		t.Fatalf("path = %q", path)
+	}
+	if !strings.Contains(rawQuery, "q=love") || !strings.Contains(rawQuery, "translation=web") {
+		t.Fatalf("query = %q", rawQuery)
+	}
+	if got.Query != "love" || len(got.Results) != 2 {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestBooksNT(t *testing.T) {
+	var path, rawQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		rawQuery = r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(readFixture(t, "books_nt.json"))
+	}))
+	t.Cleanup(srv.Close)
+
+	got, err := New(srv.URL).Books(context.Background(), "NT")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if path != "/v1/books" {
+		t.Fatalf("path = %q", path)
+	}
+	if rawQuery != "testament=NT" {
+		t.Fatalf("query = %q", rawQuery)
+	}
+	if len(got) != 27 {
+		t.Fatalf("len = %d", len(got))
+	}
+}
+
+func TestTranslations(t *testing.T) {
+	var path string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(readFixture(t, "translations.json"))
+	}))
+	t.Cleanup(srv.Close)
+
+	got, err := New(srv.URL).Translations(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if path != "/v1/translations" {
+		t.Fatalf("path = %q", path)
+	}
+	if len(got) == 0 || got[0].ID == "" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestRandomBookAndTestament(t *testing.T) {
+	var path, rawQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		rawQuery = r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(readFixture(t, "verse_john_3_16_segments.json"))
+	}))
+	t.Cleanup(srv.Close)
+
+	got, err := New(srv.URL).Random(context.Background(), "web", "PSA", "OT")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if path != "/v1/random" {
+		t.Fatalf("path = %q", path)
+	}
+	for _, want := range []string{"translation=web", "book=PSA", "testament=OT", "segments=1"} {
+		if !strings.Contains(rawQuery, want) {
+			t.Fatalf("query = %q, want %q", rawQuery, want)
+		}
+	}
+	if got.Reference != "John 3:16" {
+		t.Fatalf("reference = %q", got.Reference)
+	}
+}
+
 func assertAPIKind(t *testing.T, err error, kind string) {
 	t.Helper()
 	var apiErr *APIError
