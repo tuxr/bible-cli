@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/tuxr/bible-cli/internal/api"
+	"github.com/tuxr/bible-cli/internal/tui"
 )
 
 func isolateCmdEnv(t *testing.T) string {
@@ -168,15 +169,66 @@ func TestLookupSystemErrorExit3(t *testing.T) {
 	}
 }
 
-func TestNoArgsPrintsHelp(t *testing.T) {
+func stubTUI(t *testing.T) *tui.Options {
+	t.Helper()
+	var got tui.Options
+	orig := startTUI
+	startTUI = func(o tui.Options) error {
+		got = o
+		return nil
+	}
+	t.Cleanup(func() { startTUI = orig })
+	return &got
+}
+
+func TestNoArgsStartsTUI(t *testing.T) {
 	isolateCmdEnv(t)
+	got := stubTUI(t)
 	var out, errb bytes.Buffer
 	code := ExecuteWith([]string{}, &out, &errb)
 	if code != 0 {
 		t.Fatalf("code = %d, stderr = %q", code, errb.String())
 	}
-	if !strings.Contains(out.String(), "Usage") {
-		t.Fatalf("help missing Usage:\n%s", out.String())
+	if got.Client == nil {
+		t.Fatal("TUI not started")
+	}
+	if got.Ref != "" {
+		t.Fatalf("ref = %q, want empty", got.Ref)
+	}
+	if got.ResumeBook != "" || got.ResumeChapter != 0 {
+		t.Fatalf("resume = %s %d, want empty", got.ResumeBook, got.ResumeChapter)
+	}
+	if got.Translation != "web" {
+		t.Fatalf("translation = %q", got.Translation)
+	}
+}
+
+func TestNoArgsPassesResume(t *testing.T) {
+	writeXDGConfig(t, "[resume]\nbook = \"JHN\"\nchapter = 3\n")
+	got := stubTUI(t)
+	var out, errb bytes.Buffer
+	code := ExecuteWith([]string{}, &out, &errb)
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, errb.String())
+	}
+	if got.ResumeBook != "JHN" || got.ResumeChapter != 3 {
+		t.Fatalf("resume = %s %d", got.ResumeBook, got.ResumeChapter)
+	}
+	if got.Ref != "" {
+		t.Fatalf("ref = %q, want empty so model uses resume", got.Ref)
+	}
+}
+
+func TestTUICommandPassesRef(t *testing.T) {
+	isolateCmdEnv(t)
+	got := stubTUI(t)
+	var out, errb bytes.Buffer
+	code := ExecuteWith([]string{"tui", "John", "3:16"}, &out, &errb)
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, errb.String())
+	}
+	if got.Ref != "John 3:16" {
+		t.Fatalf("ref = %q", got.Ref)
 	}
 }
 
