@@ -124,6 +124,68 @@ func TestReservedUpdateUninstallNotLookup(t *testing.T) {
 	}
 }
 
+func TestUpdateRefusesUsrBinBibleCLI(t *testing.T) {
+	const dest = "/usr/bin/bible-cli"
+	before, existed := []byte(nil), false
+	if b, err := os.ReadFile(dest); err == nil {
+		existed = true
+		before = append([]byte(nil), b...)
+	}
+	hits := 0
+	stubGitHub(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	stubExecutable(t, dest)
+	stubPlatform(t, "linux", "amd64")
+	isolateCmdEnv(t)
+	var out, errb bytes.Buffer
+	code := ExecuteWith([]string{"update"}, &out, &errb)
+	if code != 1 {
+		t.Fatalf("code = %d, want 1, stderr = %q", code, errb.String())
+	}
+	if !strings.Contains(errb.String(), "refusing") {
+		t.Fatalf("stderr = %q, want refusing", errb.String())
+	}
+	if hits != 0 {
+		t.Fatalf("github requests = %d, want 0", hits)
+	}
+	after, err := os.ReadFile(dest)
+	if existed {
+		if err != nil {
+			t.Fatalf("replaced %s: %v", dest, err)
+		}
+		if !bytes.Equal(after, before) {
+			t.Fatalf("replaced %s", dest)
+		}
+		return
+	}
+	if err == nil {
+		t.Fatalf("created %s", dest)
+	}
+}
+
+func TestUninstallRefusesUsrBinBibleCLI(t *testing.T) {
+	hits := 0
+	stubGitHub(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	stubExecutable(t, "/usr/bin/bible-cli")
+	isolateCmdEnv(t)
+	var out, errb bytes.Buffer
+	code := ExecuteWith([]string{"uninstall", "--prefix", "/usr/bin"}, &out, &errb)
+	if code != 1 {
+		t.Fatalf("code = %d, want 1, stderr = %q", code, errb.String())
+	}
+	if !strings.Contains(errb.String(), "refusing") {
+		t.Fatalf("stderr = %q, want refusing", errb.String())
+	}
+	if hits != 0 {
+		t.Fatalf("github requests = %d, want 0", hits)
+	}
+}
+
 func TestUninstallRefusesBible(t *testing.T) {
 	dir := t.TempDir()
 	exe := filepath.Join(dir, "bible")

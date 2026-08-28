@@ -164,16 +164,33 @@ func resolvedExecutable() (string, error) {
 	if err != nil {
 		return "", systemf("executable: %s", err.Error())
 	}
-	exe, err = filepath.EvalSymlinks(exe)
+	if err := refuseBiblePath(exe); err != nil {
+		return "", err
+	}
+	resolved, err := filepath.EvalSymlinks(exe)
 	if err != nil {
 		return "", systemf("executable: %s", err.Error())
 	}
-	return exe, nil
+	if err := refuseBiblePath(resolved); err != nil {
+		return "", err
+	}
+	return resolved, nil
 }
 
 func refuseBiblePath(p string) error {
-	if filepath.Base(p) == "bible" {
+	if p == "" {
+		return nil
+	}
+	clean := filepath.Clean(p)
+	if filepath.Base(clean) == "bible" {
 		return usagef("refusing to delete %s", p)
+	}
+	if filepath.Base(clean) != ghrel.BinaryName {
+		return nil
+	}
+	switch filepath.Clean(filepath.Dir(clean)) {
+	case "/usr/bin", "/usr/local/bin":
+		return usagef("refusing to replace %s", p)
 	}
 	return nil
 }
