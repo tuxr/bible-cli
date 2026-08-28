@@ -15,7 +15,12 @@ import (
 	"github.com/tuxr/bible-cli/internal/config"
 	"github.com/tuxr/bible-cli/internal/render"
 	"github.com/tuxr/bible-cli/internal/theme"
+	"github.com/tuxr/bible-cli/internal/tui"
 )
+
+// startTUI launches the chapter reader. Tests replace it so ExecuteWith never
+// starts a live tea.Program.
+var startTUI = tui.Run
 
 const (
 	exitOK       = 0
@@ -43,6 +48,7 @@ type options struct {
 	color       string
 	redLetter   bool
 	theme       string
+	resume      config.Resume
 }
 
 type usageError struct {
@@ -75,7 +81,7 @@ func NewRoot() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				return cmd.Help()
+				return o.runTUI(cmd, "")
 			}
 			if _, reserved := reservedRefs[strings.ToLower(args[0])]; reserved {
 				return usagef("%s is a reserved command", args[0])
@@ -84,6 +90,15 @@ func NewRoot() *cobra.Command {
 		},
 	}
 	o.bindFlags(root)
+
+	root.AddCommand(&cobra.Command{
+		Use:   "tui [reference]",
+		Short: "Open the chapter reader",
+		Args:  cobra.ArbitraryArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return o.runTUI(cmd, strings.Join(args, " "))
+		},
+	})
 
 	read := &cobra.Command{
 		Use:   "read [reference]",
@@ -142,7 +157,26 @@ func (o *options) applyConfig(cmd *cobra.Command) error {
 	o.theme = cfg.Theme
 	o.apiURL = cfg.APIURL
 	o.redLetter = cfg.RedLetter
+	o.resume = cfg.Resume
 	return nil
+}
+
+func (o *options) runTUI(cmd *cobra.Command, ref string) error {
+	pal, err := o.palette()
+	if err != nil {
+		return err
+	}
+	return startTUI(tui.Options{
+		Client:        api.New(o.apiURL),
+		SaveResume:    config.SaveResume,
+		Translation:   o.translation,
+		Ref:           strings.TrimSpace(ref),
+		ResumeBook:    o.resume.Book,
+		ResumeChapter: o.resume.Chapter,
+		Palette:       pal,
+		Color:         o.colorEnabled(cmd, os.Stdout),
+		RedLetter:     o.redLetter,
+	})
 }
 
 // Execute runs the CLI with process args and stdio.
