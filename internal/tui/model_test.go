@@ -418,6 +418,9 @@ func TestNilNavigationStaysPut(t *testing.T) {
 	if !strings.Contains(m.status, "end of canon") {
 		t.Fatalf("status = %q", m.status)
 	}
+	if len(log.paths) != before {
+		t.Fatalf("extra requests: %v", log.paths[before:])
+	}
 }
 
 func TestCursorJK(t *testing.T) {
