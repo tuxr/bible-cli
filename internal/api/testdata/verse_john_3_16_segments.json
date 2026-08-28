@@ -1,0 +1,24 @@
+{
+  "reference": "John 3:16",
+  "translation": {
+    "id": "web",
+    "name": "World English Bible",
+    "language": "en"
+  },
+  "verses": [
+    {
+      "book": "JHN",
+      "book_name": "John",
+      "chapter": 3,
+      "verse": 16,
+      "text": "For God so loved the world, that he gave his only born Son, that whoever believes in him should not perish, but have eternal life.",
+      "segments": [
+        {
+          "text": "For God so loved the world, that he gave his only born Son, that whoever believes in him should not perish, but have eternal life.",
+          "speaker": "jesus"
+        }
+      ]
+    }
+  ],
+  "text": "For God so loved the world, that he gave his only born Son, that whoever believes in him should not perish, but have eternal life."
+}

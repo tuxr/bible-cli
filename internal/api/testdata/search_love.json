@@ -1,0 +1,23 @@
+{
+  "query": "love",
+  "translation": "web",
+  "total": 369,
+  "results": [
+    {
+      "book": "GEN",
+      "book_name": "Genesis",
+      "chapter": 22,
+      "verse": 2,
+      "text": "He said, “Now take your son, your only son, Isaac, whom you love, and go into the land of Moriah. Offer him there as a burnt offering on one of the mountains which I will tell you of.”",
+      "reference": "Genesis 22:2"
+    },
+    {
+      "book": "GEN",
+      "book_name": "Genesis",
+      "chapter": 27,
+      "verse": 4,
+      "text": "Make me savory food, such as I love, and bring it to me, that I may eat, and that my soul may bless you before I die.”",
+      "reference": "Genesis 27:4"
+    }
+  ]
+}
