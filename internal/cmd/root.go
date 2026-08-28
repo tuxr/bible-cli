@@ -29,13 +29,23 @@ const (
 	exitSystem   = 3
 )
 
-// Version is the bible-cli version printed by `bible version` and sent as User-Agent.
+// Version is the bible-cli version printed by `bible-cli version` and sent as User-Agent.
 // Wired from main (GoReleaser -ldflags); defaults to "dev".
 var Version = "dev"
 
 var reservedRefs = map[string]struct{}{
-	"config": {},
-	"tui":    {},
+	"books":        {},
+	"completion":   {},
+	"config":       {},
+	"help":         {},
+	"random":       {},
+	"read":         {},
+	"search":       {},
+	"translations": {},
+	"tui":          {},
+	"uninstall":    {},
+	"update":       {},
+	"version":      {},
 }
 
 // book then chapter number (optional verse/range). Leading book numbers like "1 John" are allowed.
@@ -61,11 +71,11 @@ func usagef(format string, args ...any) error {
 	return &usageError{msg: fmt.Sprintf(format, args...)}
 }
 
-// NewRoot builds the bible command tree (lookup on the root; `read` is an alias).
+// NewRoot builds the bible-cli command tree (lookup on the root; `read` is an alias).
 func NewRoot() *cobra.Command {
 	o := &options{}
 	root := &cobra.Command{
-		Use:           "bible [reference]",
+		Use:           "bible-cli [reference]",
 		Short:         "Look up Bible verses from the command line",
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -113,6 +123,7 @@ func NewRoot() *cobra.Command {
 	}
 	root.AddCommand(read)
 	o.addCatalogCommands(root)
+	o.addSelfCommands(root)
 	root.AddCommand(&cobra.Command{
 		Use:   "version",
 		Short: "Print bible-cli version",
@@ -210,6 +221,10 @@ func exitCode(err error) int {
 	if errors.As(err, &ue) {
 		return exitUsage
 	}
+	var se *systemError
+	if errors.As(err, &se) {
+		return exitSystem
+	}
 	var ae *api.APIError
 	if errors.As(err, &ae) {
 		if ae.Kind == "not-found" {
@@ -268,7 +283,7 @@ func (o *options) writeVerseResponse(cmd *cobra.Command, resp *api.VerseResponse
 func skipConfigLoad(cmd *cobra.Command) bool {
 	for c := cmd; c != nil; c = c.Parent() {
 		switch c.Name() {
-		case "completion", "version":
+		case "completion", "version", "update", "uninstall":
 			return true
 		}
 	}

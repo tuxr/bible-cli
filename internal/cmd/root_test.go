@@ -428,8 +428,15 @@ func TestCompletionNoHTTP(t *testing.T) {
 	if called {
 		t.Fatal("completion must not call API")
 	}
-	if !strings.Contains(stdout, "bible") {
-		t.Fatalf("completion missing bible:\n%s", stdout)
+	if !strings.Contains(stdout, "bible-cli") {
+		t.Fatalf("completion missing bible-cli command:\n%s", stdout)
+	}
+}
+
+func TestRootUseIsBibleCLI(t *testing.T) {
+	root := NewRoot()
+	if root.Use != "bible-cli [reference]" {
+		t.Fatalf("Use = %q", root.Use)
 	}
 }
 
