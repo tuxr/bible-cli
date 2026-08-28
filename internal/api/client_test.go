@@ -101,8 +101,29 @@ func TestUserAgent(t *testing.T) {
 	if _, err := New(srv.URL).GetVerses(context.Background(), "John 3:16", "web"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(ua, "bible-cli/") {
-		t.Fatalf("User-Agent = %q, want prefix bible-cli/", ua)
+	if ua != "bible-cli/dev (+https://github.com/tuxr/bible-cli)" {
+		t.Fatalf("User-Agent = %q", ua)
+	}
+}
+
+func TestUserAgentCustomVersion(t *testing.T) {
+	orig := Version
+	Version = "1.2.3"
+	t.Cleanup(func() { Version = orig })
+
+	var ua string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ua = r.UserAgent()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(readFixture(t, "verse_john_3_16_segments.json"))
+	}))
+	t.Cleanup(srv.Close)
+
+	if _, err := New(srv.URL).GetVerses(context.Background(), "John 3:16", "web"); err != nil {
+		t.Fatal(err)
+	}
+	if ua != "bible-cli/1.2.3 (+https://github.com/tuxr/bible-cli)" {
+		t.Fatalf("User-Agent = %q", ua)
 	}
 }
 
@@ -141,7 +162,7 @@ func TestSearchLove(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	got, err := New(srv.URL).Search(context.Background(), "love", "web")
+	got, err := New(srv.URL).Search(context.Background(), SearchQuery{Q: "love", Translation: "web"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,6 +174,57 @@ func TestSearchLove(t *testing.T) {
 	}
 	if got.Query != "love" || len(got.Results) != 2 {
 		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestSearchQueryFilters(t *testing.T) {
+	tests := []struct {
+		name string
+		q    SearchQuery
+		want []string
+		omit []string
+	}{
+		{
+			name: "all set",
+			q:    SearchQuery{Q: "love", Translation: "web", Book: "JHN", Testament: "NT", Limit: 5},
+			want: []string{"q=love", "translation=web", "book=JHN", "testament=NT", "limit=5"},
+		},
+		{
+			name: "zero limit omitted",
+			q:    SearchQuery{Q: "love", Translation: "web", Limit: 0},
+			want: []string{"q=love", "translation=web"},
+			omit: []string{"limit=", "book=", "testament="},
+		},
+		{
+			name: "negative limit omitted",
+			q:    SearchQuery{Q: "love", Limit: -1},
+			want: []string{"q=love"},
+			omit: []string{"limit="},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var rawQuery string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				rawQuery = r.URL.RawQuery
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write(readFixture(t, "search_love.json"))
+			}))
+			t.Cleanup(srv.Close)
+			if _, err := New(srv.URL).Search(context.Background(), tc.q); err != nil {
+				t.Fatal(err)
+			}
+			for _, w := range tc.want {
+				if !strings.Contains(rawQuery, w) {
+					t.Fatalf("query = %q, want %q", rawQuery, w)
+				}
+			}
+			for _, o := range tc.omit {
+				if strings.Contains(rawQuery, o) {
+					t.Fatalf("query = %q, must omit %q", rawQuery, o)
+				}
+			}
+		})
 	}
 }
 

@@ -15,9 +15,22 @@ import (
 const (
 	defaultBaseURL = "https://bible-api.dws-cloud.com"
 	apiPrefix      = "/v1"
-	userAgent      = "bible-cli/dev"
+	defaultVersion = "dev"
+	repoURL        = "https://github.com/tuxr/bible-cli"
 	httpTimeout    = 10 * time.Second
 )
+
+// Version is the bible-cli version used in User-Agent. Wired from main.
+var Version = defaultVersion
+
+// SearchQuery is GET /v1/search. Empty optional fields and Limit <= 0 are omitted.
+type SearchQuery struct {
+	Q           string
+	Translation string
+	Book        string
+	Testament   string
+	Limit       int
+}
 
 // Client talks to bible-api.
 type Client struct {
@@ -61,12 +74,21 @@ func (c *Client) GetChapter(ctx context.Context, book string, chapter int, trans
 }
 
 // Search is GET /v1/search.
-func (c *Client) Search(ctx context.Context, q, translation string) (*SearchResponse, error) {
+func (c *Client) Search(ctx context.Context, q SearchQuery) (*SearchResponse, error) {
 	var out SearchResponse
 	vals := url.Values{}
-	vals.Set("q", q)
-	if translation != "" {
-		vals.Set("translation", translation)
+	vals.Set("q", q.Q)
+	if q.Translation != "" {
+		vals.Set("translation", q.Translation)
+	}
+	if q.Book != "" {
+		vals.Set("book", q.Book)
+	}
+	if q.Testament != "" {
+		vals.Set("testament", q.Testament)
+	}
+	if q.Limit > 0 {
+		vals.Set("limit", strconv.Itoa(q.Limit))
 	}
 	if err := c.doJSON(ctx, apiPrefix+"/search", vals, &out); err != nil {
 		return nil, err
@@ -181,9 +203,17 @@ func (c *Client) get(ctx context.Context, u string) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("User-Agent", userAgent())
 	req.Header.Set("Accept", "application/json")
 	return c.http.Do(req)
+}
+
+func userAgent() string {
+	v := strings.TrimSpace(Version)
+	if v == "" {
+		v = defaultVersion
+	}
+	return "bible-cli/" + v + " (+" + repoURL + ")"
 }
 
 func retryAfter(resp *http.Response) time.Duration {

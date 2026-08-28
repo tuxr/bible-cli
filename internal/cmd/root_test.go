@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -15,6 +16,8 @@ import (
 
 func isolateCmdEnv(t *testing.T) string {
 	t.Helper()
+	t.Setenv("NO_COLOR", "")
+	t.Setenv("FORCE_COLOR", "")
 	if os.Getenv("BIBLE_CLI_TEST_XDG") == "1" {
 		return os.Getenv("XDG_CONFIG_HOME")
 	}
@@ -302,5 +305,279 @@ func TestLookupUsesConfigAPIURL(t *testing.T) {
 	}
 	if !called {
 		t.Fatal("expected request to config api_url")
+	}
+}
+
+func TestVersionNoHTTP(t *testing.T) {
+	called := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+	}))
+	t.Cleanup(srv.Close)
+
+	orig := Version
+	Version = "dev"
+	t.Cleanup(func() { Version = orig })
+
+	stdout, stderr, code := runCLI(t, srv.URL, "version")
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, stderr)
+	}
+	if called {
+		t.Fatal("version must not call API")
+	}
+	if strings.TrimSpace(stdout) != "dev" {
+		t.Fatalf("stdout = %q, want dev", stdout)
+	}
+}
+
+func TestCompletionNoHTTP(t *testing.T) {
+	called := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+	}))
+	t.Cleanup(srv.Close)
+
+	stdout, stderr, code := runCLI(t, srv.URL, "completion", "bash")
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q stdout = %q", code, stderr, stdout)
+	}
+	if called {
+		t.Fatal("completion must not call API")
+	}
+	if !strings.Contains(stdout, "bible") {
+		t.Fatalf("completion missing bible:\n%s", stdout)
+	}
+}
+
+func TestConfigReservedNoHTTP(t *testing.T) {
+	called := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+	}))
+	t.Cleanup(srv.Close)
+
+	_, stderr, code := runCLI(t, srv.URL, "config")
+	if code != 1 {
+		t.Fatalf("code = %d, want 1, stderr = %q", code, stderr)
+	}
+	if called {
+		t.Fatal("config must not be treated as a reference")
+	}
+	if !strings.Contains(stderr, "reserved") {
+		t.Fatalf("stderr = %q, want reserved", stderr)
+	}
+}
+
+func TestLookupUserAgentVersion(t *testing.T) {
+	orig := Version
+	Version = "4.5.6"
+	t.Cleanup(func() { Version = orig })
+
+	var ua string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ua = r.UserAgent()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(readFixture(t, "verse_john_3_16_segments.json"))
+	}))
+	t.Cleanup(srv.Close)
+
+	_, stderr, code := runCLI(t, srv.URL, "John", "3:16")
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, stderr)
+	}
+	if ua != "bible-cli/4.5.6 (+https://github.com/tuxr/bible-cli)" {
+		t.Fatalf("User-Agent = %q", ua)
+	}
+}
+
+func TestPipedLookupSingleVerse(t *testing.T) {
+	srv := newFixtureServer(t, http.StatusOK, "verse_john_3_16_segments.json")
+	stdout, stderr, code := runCLI(t, srv.URL, "John", "3:16")
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, stderr)
+	}
+	if strings.Contains(stdout, "\x1b") {
+		t.Fatalf("ANSI in piped lookup: %q", stdout)
+	}
+	if strings.Contains(stdout, "WEB") {
+		t.Fatalf("translation suffix in piped lookup:\n%s", stdout)
+	}
+	lines := strings.Split(strings.TrimSuffix(stdout, "\n"), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("lines = %#v", lines)
+	}
+	if lines[0] != "John 3:16" {
+		t.Fatalf("header = %q", lines[0])
+	}
+	if strings.Contains(lines[1], "	") || strings.HasPrefix(lines[1], "16") {
+		t.Fatalf("single verse must be text only, got %q", lines[1])
+	}
+	if !strings.Contains(lines[1], "For God so loved the world") {
+		t.Fatalf("missing verse text: %q", lines[1])
+	}
+}
+
+func TestPipedLookupMultiVerse(t *testing.T) {
+	body := []byte(`{
+  "reference": "John 3:16-17",
+  "translation": {"id": "web", "name": "World English Bible", "language": "en"},
+  "verses": [
+    {"verse": 16, "text": "For God so loved the world."},
+    {"verse": 17, "text": "For God didn't send his Son into the world to judge the world."}
+  ]
+}`)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(body)
+	}))
+	t.Cleanup(srv.Close)
+
+	stdout, stderr, code := runCLI(t, srv.URL, "John", "3:16-17")
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, stderr)
+	}
+	want := "John 3:16-17\n16	For God so loved the world.\n17	For God didn't send his Son into the world to judge the world.\n"
+	if stdout != want {
+		t.Fatalf("stdout = %q\nwant %q", stdout, want)
+	}
+}
+
+func TestTTYLookupKeepsHeaderAndNumbers(t *testing.T) {
+	origTTY := writerIsTTY
+	writerIsTTY = func(io.Writer) bool { return true }
+	t.Cleanup(func() { writerIsTTY = origTTY })
+
+	srv := newFixtureServer(t, http.StatusOK, "verse_john_3_16_segments.json")
+	stdout, stderr, code := runCLI(t, srv.URL, "--color", "never", "John", "3:16")
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, stderr)
+	}
+	if !strings.Contains(stdout, "John 3:16 (WEB)") {
+		t.Fatalf("missing TTY header:\n%s", stdout)
+	}
+	if !strings.Contains(stdout, "16  For God so loved the world") {
+		t.Fatalf("missing numbered TTY line:\n%s", stdout)
+	}
+}
+
+func TestLookupPipedNotJSON(t *testing.T) {
+	srv := newFixtureServer(t, http.StatusOK, "verse_john_3_16_segments.json")
+	stdout, stderr, code := runCLI(t, srv.URL, "John", "3:16")
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, stderr)
+	}
+	if strings.HasPrefix(strings.TrimSpace(stdout), "{") {
+		t.Fatalf("piped lookup must not auto-JSON:\n%s", stdout)
+	}
+}
+
+func TestInvalidColorExit1(t *testing.T) {
+	called := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called++
+	}))
+	t.Cleanup(srv.Close)
+
+	_, stderr, code := runCLI(t, srv.URL, "--color", "rainbow", "John", "3:16")
+	if code != 1 {
+		t.Fatalf("code = %d, want 1, stderr = %q", code, stderr)
+	}
+	if called != 0 {
+		t.Fatalf("requests = %d, want 0", called)
+	}
+	if !strings.Contains(stderr, "invalid color") {
+		t.Fatalf("stderr = %q", stderr)
+	}
+}
+
+func TestColorNO_COLORDisablesOnTTY(t *testing.T) {
+	origTTY := writerIsTTY
+	writerIsTTY = func(io.Writer) bool { return true }
+	t.Cleanup(func() { writerIsTTY = origTTY })
+
+	srv := newFixtureServer(t, http.StatusOK, "verse_john_3_16_segments.json")
+	isolateCmdEnv(t)
+	t.Setenv("NO_COLOR", "1")
+	var out, errb bytes.Buffer
+	code := ExecuteWith([]string{"--api-url", srv.URL, "John", "3:16"}, &out, &errb)
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, errb.String())
+	}
+	if strings.Contains(out.String(), "\x1b") {
+		t.Fatalf("ANSI with NO_COLOR: %q", out.String())
+	}
+}
+
+func TestColorFORCE_COLOREnablesOnTTY(t *testing.T) {
+	origTTY := writerIsTTY
+	writerIsTTY = func(io.Writer) bool { return true }
+	t.Cleanup(func() { writerIsTTY = origTTY })
+
+	srv := newFixtureServer(t, http.StatusOK, "verse_john_3_16_segments.json")
+	isolateCmdEnv(t)
+	t.Setenv("FORCE_COLOR", "1")
+	var out, errb bytes.Buffer
+	code := ExecuteWith([]string{"--api-url", srv.URL, "John", "3:16"}, &out, &errb)
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, errb.String())
+	}
+	if !strings.Contains(out.String(), "\x1b") {
+		t.Fatalf("expected ANSI with FORCE_COLOR, got %q", out.String())
+	}
+}
+
+func TestColorNO_COLORWinsOverFORCE_COLOR(t *testing.T) {
+	origTTY := writerIsTTY
+	writerIsTTY = func(io.Writer) bool { return true }
+	t.Cleanup(func() { writerIsTTY = origTTY })
+
+	srv := newFixtureServer(t, http.StatusOK, "verse_john_3_16_segments.json")
+	isolateCmdEnv(t)
+	t.Setenv("NO_COLOR", "1")
+	t.Setenv("FORCE_COLOR", "1")
+	var out, errb bytes.Buffer
+	code := ExecuteWith([]string{"--api-url", srv.URL, "John", "3:16"}, &out, &errb)
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, errb.String())
+	}
+	if strings.Contains(out.String(), "\x1b") {
+		t.Fatalf("NO_COLOR must win: %q", out.String())
+	}
+}
+
+func TestColorFlagWinsOverEnv(t *testing.T) {
+	origTTY := writerIsTTY
+	writerIsTTY = func(io.Writer) bool { return true }
+	t.Cleanup(func() { writerIsTTY = origTTY })
+
+	srv := newFixtureServer(t, http.StatusOK, "verse_john_3_16_segments.json")
+	isolateCmdEnv(t)
+	t.Setenv("NO_COLOR", "1")
+	var out, errb bytes.Buffer
+	code := ExecuteWith([]string{"--api-url", srv.URL, "--color", "always", "John", "3:16"}, &out, &errb)
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, errb.String())
+	}
+	if !strings.Contains(out.String(), "\x1b") {
+		t.Fatalf("explicit --color=always must win, got %q", out.String())
+	}
+}
+
+func TestThemeDefaultsToDark(t *testing.T) {
+	origTTY := writerIsTTY
+	writerIsTTY = func(io.Writer) bool { return true }
+	t.Cleanup(func() { writerIsTTY = origTTY })
+
+	srv := newFixtureServer(t, http.StatusOK, "verse_john_3_16_segments.json")
+	stdout, stderr, code := runCLI(t, srv.URL, "--color", "always", "John", "3:16")
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, stderr)
+	}
+	if !strings.Contains(stdout, "\x1b[38;2;195;30;58m") {
+		t.Fatalf("expected dark red-letter ANSI, got %q", stdout)
+	}
+	if strings.Contains(stdout, "\x1b[38;2;155;27;48m") {
+		t.Fatalf("light red-letter ANSI present: %q", stdout)
 	}
 }

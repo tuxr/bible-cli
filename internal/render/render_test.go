@@ -154,3 +154,21 @@ func TestWriteJSONVerseResponseOmitsTopLevelTextKeepsSegments(t *testing.T) {
 		t.Fatalf("segment text mismatch: %#v", segs)
 	}
 }
+
+func TestPipedLookupSingleAndMulti(t *testing.T) {
+	one := PipedLookup("John 3:16", []api.Verse{{Verse: 16, Text: "For God so loved the world."}}, Options{})
+	if one != "John 3:16\nFor God so loved the world." {
+		t.Fatalf("single = %q", one)
+	}
+	if strings.Contains(one, "\x1b") {
+		t.Fatalf("ANSI in piped single: %q", one)
+	}
+	multi := PipedLookup("John 3:16-17", []api.Verse{
+		{Verse: 16, Text: "For God so loved the world."},
+		{Verse: 17, Text: "For God didn't send his Son into the world to judge the world."},
+	}, Options{})
+	want := "John 3:16-17\n16	For God so loved the world.\n17	For God didn't send his Son into the world to judge the world."
+	if multi != want {
+		t.Fatalf("multi = %q", multi)
+	}
+}

@@ -20,6 +20,7 @@ func TestCatalogExecute(t *testing.T) {
 		wantCode  int
 		wantPath  string
 		queryHas  []string
+		queryOmit []string
 		stderrHas string
 		textHas   []string
 		noAPI     bool
@@ -73,6 +74,44 @@ func TestCatalogExecute(t *testing.T) {
 					t.Fatalf("query = %q", resp.Query)
 				}
 			},
+		},
+		{
+			name:     "search book testament limit",
+			fixture:  "search_love.json",
+			args:     []string{"search", "love", "--book", "JHN", "--testament", "NT", "--limit", "5"},
+			wantCode: 0,
+			wantPath: "/v1/search",
+			queryHas: []string{"q=love", "book=JHN", "testament=NT", "limit=5", "translation=web"},
+			checkJSON: func(t *testing.T, stdout string) {
+				t.Helper()
+				var resp api.SearchResponse
+				if err := json.Unmarshal([]byte(stdout), &resp); err != nil {
+					t.Fatalf("json: %v\n%s", err, stdout)
+				}
+			},
+		},
+		{
+			name:      "search zero limit omits param",
+			fixture:   "search_love.json",
+			args:      []string{"search", "love", "--limit", "0"},
+			wantCode:  0,
+			wantPath:  "/v1/search",
+			queryHas:  []string{"q=love"},
+			queryOmit: []string{"limit="},
+		},
+		{
+			name:      "search invalid testament no HTTP",
+			args:      []string{"search", "love", "--testament", "XX"},
+			noAPI:     true,
+			wantCode:  1,
+			stderrHas: "invalid testament",
+		},
+		{
+			name:      "search negative limit no HTTP",
+			args:      []string{"search", "love", "--limit", "-1"},
+			noAPI:     true,
+			wantCode:  1,
+			stderrHas: "invalid limit",
 		},
 		{
 			name:      "search empty query",
@@ -221,6 +260,11 @@ func TestCatalogExecute(t *testing.T) {
 			for _, q := range tc.queryHas {
 				if !strings.Contains(rawQuery, q) {
 					t.Fatalf("query = %q, want %q", rawQuery, q)
+				}
+			}
+			for _, q := range tc.queryOmit {
+				if strings.Contains(rawQuery, q) {
+					t.Fatalf("query = %q, must omit %q", rawQuery, q)
 				}
 			}
 			if tc.stderrHas != "" && !strings.Contains(stderr, tc.stderrHas) {
