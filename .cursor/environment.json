@@ -1,0 +1,7 @@
+{
+  "name": "bible-cli",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "install": "go mod download"
+}
