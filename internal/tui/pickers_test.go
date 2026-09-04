@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -105,6 +106,68 @@ func TestBookPickerFilterAndChapterSelect(t *testing.T) {
 	}
 	if sv.n != 2 || sv.book != "JHN" || sv.chapter != 3 {
 		t.Fatalf("resume after book pick = %+v", sv)
+	}
+}
+
+func TestBookPickerScrollsToSelection(t *testing.T) {
+	tests := []struct {
+		name   string
+		filter string
+		first  string
+		last   string
+	}{
+		{name: "all books", first: "MAT", last: "REV"},
+		{name: "filtered", filter: "o", first: "JHN", last: "REV"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv, _ := newTUIServer(t)
+			m := load(t, clientOpts(t, srv, Options{ResumeBook: "GEN", ResumeChapter: 1}))
+			next, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 12})
+			m = asModel(t, next)
+			next, cmd := m.Update(key("b"))
+			m = drain(t, asModel(t, next), cmd)
+			if tt.filter != "" {
+				next, _ = m.Update(key(tt.filter))
+				m = asModel(t, next)
+			}
+			items := m.filteredBooks()
+			if len(items) == 0 || items[0].ID != tt.first || items[len(items)-1].ID != tt.last {
+				t.Fatalf("filtered books = %+v", items)
+			}
+			row := func(b api.Book) string { return fmt.Sprintf(" %s  %s", b.ID, b.Name) }
+			first, last := row(items[0]), row(items[len(items)-1])
+			topPage := func(view string) {
+				t.Helper()
+				if !strings.Contains(view, first) || strings.Contains(view, last) {
+					t.Fatalf("top page should show %s and hide %s:\n%s", tt.first, tt.last, view)
+				}
+				if tt.filter != "" && !strings.Contains(view, "filter: "+tt.filter) {
+					t.Fatalf("filter echo hidden on top page:\n%s", view)
+				}
+			}
+			press := func(k string) {
+				t.Helper()
+				next, _ := m.Update(key(k))
+				m = asModel(t, next)
+				if sel := row(items[m.bookCursor]); !strings.Contains(m.View(), sel) {
+					t.Fatalf("%s: selected %q scrolled off screen:\n%s", k, sel, m.View())
+				}
+			}
+
+			topPage(m.View())
+			for m.bookCursor < len(items)-1 {
+				press("down")
+			}
+			view := m.View()
+			if !strings.Contains(view, last) || strings.Contains(view, first) {
+				t.Fatalf("bottom page should show %s and hide %s:\n%s", tt.last, tt.first, view)
+			}
+			for m.bookCursor > 0 {
+				press("up")
+			}
+			topPage(m.View())
+		})
 	}
 }
 
