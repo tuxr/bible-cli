@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/tuxr/bible-cli/internal/api"
 )
@@ -260,6 +261,7 @@ func (m Model) handleTranslationsKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 func (m Model) renderBookPicker(width, height int) string {
 	items := m.filteredBooks()
 	var b strings.Builder
+	cursorLine := 0
 	if m.books == nil && m.status == "" {
 		b.WriteString("loading books…")
 	} else {
@@ -275,6 +277,9 @@ func (m Model) renderBookPicker(width, height int) string {
 			}
 			line := fmt.Sprintf(" %s  %s", book.ID, book.Name)
 			if i == m.bookCursor {
+				if i > 0 {
+					cursorLine = lipgloss.Height(wrap(strings.TrimRight(b.String(), "\n"), width))
+				}
 				line = m.selectedStyle().Width(max(1, width)).Render(clip(line, width))
 			}
 			b.WriteString(line)
@@ -284,7 +289,7 @@ func (m Model) renderBookPicker(width, height int) string {
 			b.WriteString("no matches")
 		}
 	}
-	return window(wrap(strings.TrimRight(b.String(), "\n"), width), height, 0)
+	return window(wrap(strings.TrimRight(b.String(), "\n"), width), height, cursorLine)
 }
 
 func (m Model) renderChapterGrid(width, height int) string {
